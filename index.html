@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Captura de documento</title>
-
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -20,21 +17,27 @@
     }
 
     .container {
-      max-width: 760px;
+      max-width: 780px;
       margin: auto;
       padding: 16px;
     }
 
     .card {
-      background: white;
+      background: #fff;
       border-radius: 16px;
       padding: 16px;
       margin-bottom: 16px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
     }
 
-    h1, h2 {
+    h1, h2, h3 {
       margin-top: 0;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
     }
 
     label {
@@ -52,9 +55,7 @@
       font-size: 16px;
     }
 
-    input {
-      margin-bottom: 10px;
-    }
+    input { margin-bottom: 10px; }
 
     button {
       border: none;
@@ -69,29 +70,97 @@
       background: #374151;
     }
 
-    img.preview {
-      width: 100%;
-      border-radius: 12px;
-      margin-top: 10px;
-      border: 1px solid #d1d5db;
-      display: none;
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
-    .small {
-      font-size: 13px;
-      color: #6b7280;
-      line-height: 1.5;
+    .camera-shell {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+
+    .frame {
+      position: absolute;
+      left: 12%;
+      top: 30%;
+      width: 76%;
+      height: 26%;
+      border: 3px solid #22c55e;
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.42);
+      pointer-events: none;
+    }
+
+    .frame::before,
+    .frame::after {
+      content: "";
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border: 4px solid #60a5fa;
+    }
+
+    .frame::before {
+      top: -4px;
+      left: -4px;
+      border-right: 0;
+      border-bottom: 0;
+      border-top-left-radius: 10px;
+    }
+
+    .frame::after {
+      bottom: -4px;
+      right: -4px;
+      border-left: 0;
+      border-top: 0;
+      border-bottom-right-radius: 10px;
+    }
+
+    .preview {
+      width: 100%;
+      display: none;
+      margin-top: 12px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
     .status {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #111827;
+      margin-top: 12px;
       white-space: pre-wrap;
+      font-size: 14px;
     }
 
     .required {
       color: #dc2626;
+    }
+
+    canvas.hidden {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .grid2 {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -100,24 +169,44 @@
     <div class="card">
       <h1>Formulario con fotos y PDF</h1>
       <p class="small">
-        Toma ambas fotos, llena todos los campos obligatorios y genera un PDF para compartir.
+        Coloca el documento dentro del marco. El sistema guardará solo el área dentro del recuadro.
       </p>
     </div>
 
     <div class="card">
-      <h2>1. Fotos del documento</h2>
+      <h2>1. Frente del documento</h2>
 
-      <label for="frontInput">Foto frente <span class="required">*</span></label>
-      <input type="file" id="frontInput" accept="image/*" capture="environment">
-      <img id="frontPreview" class="preview" alt="Foto frente">
+      <div class="camera-shell">
+        <video id="videoFront" autoplay playsinline muted></video>
+        <div class="frame"></div>
+      </div>
 
-      <label for="backInput">Foto reverso <span class="required">*</span></label>
-      <input type="file" id="backInput" accept="image/*" capture="environment">
-      <img id="backPreview" class="preview" alt="Foto reverso">
+      <div class="grid2">
+        <button id="startFrontBtn">Abrir cámara frente</button>
+        <button id="captureFrontBtn" class="secondary" disabled>Tomar foto frente</button>
+      </div>
+
+      <img id="frontPreview" class="preview" alt="Frente recortado">
     </div>
 
     <div class="card">
-      <h2>2. Datos obligatorios</h2>
+      <h2>2. Reverso del documento</h2>
+
+      <div class="camera-shell">
+        <video id="videoBack" autoplay playsinline muted></video>
+        <div class="frame"></div>
+      </div>
+
+      <div class="grid2">
+        <button id="startBackBtn">Abrir cámara reverso</button>
+        <button id="captureBackBtn" class="secondary" disabled>Tomar foto reverso</button>
+      </div>
+
+      <img id="backPreview" class="preview" alt="Reverso recortado">
+    </div>
+
+    <div class="card">
+      <h2>3. Datos</h2>
 
       <label for="fullName">Nombre completo <span class="required">*</span></label>
       <input type="text" id="fullName" placeholder="Ej: Juan Pérez Mora">
@@ -128,225 +217,316 @@
       <label for="phone">Teléfono <span class="required">*</span></label>
       <input type="tel" id="phone" placeholder="Ej: 8888-8888">
 
+      <label for="email">Correo <span class="required">*</span></label>
+      <input type="email" id="email" placeholder="cliente@correo.com">
     </div>
 
     <div class="card">
-      <h2>3. Generar y compartir</h2>
+      <h2>4. PDF</h2>
       <button id="pdfBtn">Generar PDF</button>
       <button id="shareBtn" class="secondary">Compartir PDF</button>
       <div id="status" class="status"></div>
     </div>
   </div>
 
+  <canvas id="captureCanvas" class="hidden"></canvas>
+  <canvas id="cropCanvas" class="hidden"></canvas>
+
   <script>
-    
-    <script>
-  const { jsPDF } = window.jspdf;
+    const { jsPDF } = window.jspdf;
 
-  let frontFile = null;
-  let backFile = null;
-  let pdfBlob = null;
+    let frontBlob = null;
+    let backBlob = null;
+    let pdfBlob = null;
 
-  const frontInput = document.getElementById("frontInput");
-  const backInput = document.getElementById("backInput");
-  const frontPreview = document.getElementById("frontPreview");
-  const backPreview = document.getElementById("backPreview");
+    let frontStream = null;
+    let backStream = null;
 
-  const fullName = document.getElementById("fullName");
-  const idNumber = document.getElementById("idNumber");
-  const phone = document.getElementById("phone");
-  const email = document.getElementById("email");
+    const videoFront = document.getElementById("videoFront");
+    const videoBack = document.getElementById("videoBack");
+    const startFrontBtn = document.getElementById("startFrontBtn");
+    const startBackBtn = document.getElementById("startBackBtn");
+    const captureFrontBtn = document.getElementById("captureFrontBtn");
+    const captureBackBtn = document.getElementById("captureBackBtn");
+    const frontPreview = document.getElementById("frontPreview");
+    const backPreview = document.getElementById("backPreview");
 
-  const pdfBtn = document.getElementById("pdfBtn");
-  const shareBtn = document.getElementById("shareBtn");
-  const statusBox = document.getElementById("status");
+    const fullName = document.getElementById("fullName");
+    const idNumber = document.getElementById("idNumber");
+    const phone = document.getElementById("phone");
+    const email = document.getElementById("email");
 
-  frontInput.addEventListener("change", (e) => loadImage(e, "front"));
-  backInput.addEventListener("change", (e) => loadImage(e, "back"));
-  pdfBtn.addEventListener("click", generatePDF);
-  shareBtn.addEventListener("click", sharePDF);
+    const pdfBtn = document.getElementById("pdfBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const statusBox = document.getElementById("status");
 
-  function loadImage(event, side) {
-    const file = event.target.files[0];
-    if (!file) return;
+    const captureCanvas = document.getElementById("captureCanvas");
+    const cropCanvas = document.getElementById("cropCanvas");
 
-    const url = URL.createObjectURL(file);
+    startFrontBtn.addEventListener("click", () => startCamera("front"));
+    startBackBtn.addEventListener("click", () => startCamera("back"));
+    captureFrontBtn.addEventListener("click", () => captureDocument("front"));
+    captureBackBtn.addEventListener("click", () => captureDocument("back"));
+    pdfBtn.addEventListener("click", generatePDF);
+    shareBtn.addEventListener("click", sharePDF);
 
-    if (side === "front") {
-      frontFile = file;
-      frontPreview.src = url;
-      frontPreview.style.display = "block";
-    } else {
-      backFile = file;
-      backPreview.src = url;
-      backPreview.style.display = "block";
-    }
-  }
-
-  function validateFields() {
-    if (!frontFile) {
-      statusBox.textContent = "Debes tomar la foto del frente.";
-      return false;
-    }
-
-    if (!backFile) {
-      statusBox.textContent = "Debes tomar la foto del reverso.";
-      return false;
-    }
-
-    if (!fullName.value.trim()) {
-      statusBox.textContent = "El nombre completo es obligatorio.";
-      fullName.focus();
-      return false;
-    }
-
-    if (!idNumber.value.trim()) {
-      statusBox.textContent = "El número de cédula es obligatorio.";
-      idNumber.focus();
-      return false;
-    }
-
-    if (!phone.value.trim()) {
-      statusBox.textContent = "El teléfono es obligatorio.";
-      phone.focus();
-      return false;
-    }
-
-    if (!email.value.trim()) {
-      statusBox.textContent = "El correo es obligatorio.";
-      email.focus();
-      return false;
-    }
-
-    if (!isValidEmail(email.value.trim())) {
-      statusBox.textContent = "Debes escribir un correo válido.";
-      email.focus();
-      return false;
-    }
-
-    return true;
-  }
-
-  function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-
-  function fileToOptimizedDataURL(file, maxWidth = 1200, quality = 0.82) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          let width = img.width;
-          let height = img.height;
-
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
+    async function startCamera(side) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
           }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
-          resolve(dataUrl);
-        };
-
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function generatePDF() {
-    try {
-      if (!validateFields()) return;
-
-      statusBox.textContent = "Generando PDF...";
-
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-        compress: true
-      });
-
-      const frontData = await fileToOptimizedDataURL(frontFile);
-      const backData = await fileToOptimizedDataURL(backFile);
-
-      doc.setFontSize(18);
-      doc.text("Formulario de identificación", 14, 18);
-
-      doc.setFontSize(12);
-      doc.text("Nombre completo: " + fullName.value.trim(), 14, 32);
-      doc.text("Número de cédula: " + idNumber.value.trim(), 14, 40);
-      doc.text("Teléfono: " + phone.value.trim(), 14, 48);
-      doc.text("Correo: " + email.value.trim(), 14, 56);
-
-      doc.setFontSize(11);
-      doc.text("Foto frente:", 14, 70);
-      doc.addImage(frontData, "JPEG", 14, 74, 85, 54);
-
-      doc.text("Foto reverso:", 110, 70);
-      doc.addImage(backData, "JPEG", 110, 74, 85, 54);
-
-      pdfBlob = doc.output("blob");
-
-      if (!pdfBlob || pdfBlob.size === 0) {
-        throw new Error("El PDF quedó vacío.");
-      }
-
-      statusBox.textContent = "PDF generado correctamente.";
-    } catch (error) {
-      console.error("Error generando PDF:", error);
-      statusBox.textContent = "Ocurrió un error al generar el PDF. Revisa la consola.";
-    }
-  }
-
-  async function sharePDF() {
-    try {
-      if (!pdfBlob) {
-        await generatePDF();
-      }
-
-      if (!pdfBlob) return;
-
-      const file = new File([pdfBlob], "documento_cliente.pdf", {
-        type: "application/pdf"
-      });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: "Documento del cliente",
-          text: "Comparto el PDF generado.",
-          files: [file]
         });
-        statusBox.textContent = "PDF compartido correctamente.";
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "documento_cliente.pdf";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        statusBox.textContent = "El PDF se descargó correctamente.";
+
+        if (side === "front") {
+          stopStream(frontStream);
+          frontStream = stream;
+          videoFront.srcObject = stream;
+          await videoFront.play();
+          captureFrontBtn.disabled = false;
+        } else {
+          stopStream(backStream);
+          backStream = stream;
+          videoBack.srcObject = stream;
+          await videoBack.play();
+          captureBackBtn.disabled = false;
+        }
+
+        statusBox.textContent = "Cámara abierta.";
+      } catch (error) {
+        console.error(error);
+        statusBox.textContent = "No se pudo abrir la cámara. Revisa permisos del navegador.";
       }
-    } catch (error) {
-      console.error("Error compartiendo PDF:", error);
-      statusBox.textContent = "No se pudo compartir el PDF.";
     }
-  }
-</script>
+
+    function stopStream(stream) {
+      if (!stream) return;
+      stream.getTracks().forEach(track => track.stop());
+    }
+
+    async function captureDocument(side) {
+      try {
+        const video = side === "front" ? videoFront : videoBack;
+
+        if (!video.videoWidth || !video.videoHeight) {
+          statusBox.textContent = "La cámara aún no está lista.";
+          return;
+        }
+
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+
+        captureCanvas.width = vw;
+        captureCanvas.height = vh;
+
+        const ctx = captureCanvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, vw, vh);
+
+        // Coordenadas del marco visual
+        const x = Math.round(vw * 0.12);
+        const y = Math.round(vh * 0.30);
+        const w = Math.round(vw * 0.76);
+        const h = Math.round(vh * 0.26);
+
+        cropCanvas.width = w;
+        cropCanvas.height = h;
+
+        const cropCtx = cropCanvas.getContext("2d");
+        cropCtx.clearRect(0, 0, w, h);
+        cropCtx.drawImage(captureCanvas, x, y, w, h, 0, 0, w, h);
+
+        const finalBlob = await canvasToOptimizedBlob(cropCanvas, 1400, 0.88);
+        const previewUrl = URL.createObjectURL(finalBlob);
+
+        if (side === "front") {
+          frontBlob = finalBlob;
+          frontPreview.src = previewUrl;
+          frontPreview.style.display = "block";
+          stopStream(frontStream);
+          frontStream = null;
+          videoFront.srcObject = null;
+          captureFrontBtn.disabled = true;
+        } else {
+          backBlob = finalBlob;
+          backPreview.src = previewUrl;
+          backPreview.style.display = "block";
+          stopStream(backStream);
+          backStream = null;
+          videoBack.srcObject = null;
+          captureBackBtn.disabled = true;
+        }
+
+        statusBox.textContent = `Foto ${side === "front" ? "del frente" : "del reverso"} capturada y recortada.`;
+      } catch (error) {
+        console.error(error);
+        statusBox.textContent = "No se pudo capturar y recortar la imagen.";
+      }
+    }
+
+    async function canvasToOptimizedBlob(sourceCanvas, maxWidth = 1400, quality = 0.88) {
+      const targetCanvas = document.createElement("canvas");
+      let width = sourceCanvas.width;
+      let height = sourceCanvas.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      targetCanvas.width = width;
+      targetCanvas.height = height;
+
+      const ctx = targetCanvas.getContext("2d");
+      ctx.drawImage(sourceCanvas, 0, 0, width, height);
+
+      return new Promise((resolve, reject) => {
+        targetCanvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("No se pudo convertir la imagen."));
+            return;
+          }
+          resolve(blob);
+        }, "image/jpeg", quality);
+      });
+    }
+
+    function validateFields() {
+      if (!frontBlob) {
+        statusBox.textContent = "Debes tomar la foto del frente.";
+        return false;
+      }
+
+      if (!backBlob) {
+        statusBox.textContent = "Debes tomar la foto del reverso.";
+        return false;
+      }
+
+      if (!fullName.value.trim()) {
+        statusBox.textContent = "El nombre completo es obligatorio.";
+        fullName.focus();
+        return false;
+      }
+
+      if (!idNumber.value.trim()) {
+        statusBox.textContent = "El número de cédula es obligatorio.";
+        idNumber.focus();
+        return false;
+      }
+
+      if (!phone.value.trim()) {
+        statusBox.textContent = "El teléfono es obligatorio.";
+        phone.focus();
+        return false;
+      }
+
+      if (!email.value.trim()) {
+        statusBox.textContent = "El correo es obligatorio.";
+        email.focus();
+        return false;
+      }
+
+      if (!isValidEmail(email.value.trim())) {
+        statusBox.textContent = "Debes escribir un correo válido.";
+        email.focus();
+        return false;
+      }
+
+      return true;
+    }
+
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function generatePDF() {
+      try {
+        if (!validateFields()) return;
+
+        statusBox.textContent = "Generando PDF...";
+
+        const frontData = await blobToDataURL(frontBlob);
+        const backData = await blobToDataURL(backBlob);
+
+        const doc = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
+          compress: true
+        });
+
+        doc.setFontSize(18);
+        doc.text("Formulario de identificación", 14, 18);
+
+        doc.setFontSize(12);
+        doc.text("Nombre completo: " + fullName.value.trim(), 14, 32);
+        doc.text("Número de cédula: " + idNumber.value.trim(), 14, 40);
+        doc.text("Teléfono: " + phone.value.trim(), 14, 48);
+        doc.text("Correo: " + email.value.trim(), 14, 56);
+
+        doc.setFontSize(11);
+        doc.text("Foto frente:", 14, 68);
+        doc.addImage(frontData, "JPEG", 14, 72, 85, 54);
+
+        doc.text("Foto reverso:", 110, 68);
+        doc.addImage(backData, "JPEG", 110, 72, 85, 54);
+
+        pdfBlob = doc.output("blob");
+
+        if (!pdfBlob || pdfBlob.size === 0) {
+          throw new Error("El PDF quedó vacío.");
+        }
+
+        statusBox.textContent = "PDF generado correctamente.";
+      } catch (error) {
+        console.error("Error generando PDF:", error);
+        statusBox.textContent = "Ocurrió un error al generar el PDF.";
+      }
+    }
+
+    async function sharePDF() {
+      try {
+        if (!pdfBlob) {
+          await generatePDF();
+        }
+
+        if (!pdfBlob) return;
+
+        const file = new File([pdfBlob], "documento_cliente.pdf", {
+          type: "application/pdf"
+        });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "Documento del cliente",
+            text: "Comparto el PDF generado.",
+            files: [file]
+          });
+          statusBox.textContent = "PDF compartido correctamente.";
+        } else {
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "documento_cliente.pdf";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          statusBox.textContent = "El navegador descargó el PDF.";
+        }
+      } catch (error) {
+        console.error("Error compartiendo PDF:", error);
+        statusBox.textContent = "No se pudo compartir el PDF.";
       }
     }
   </script>
