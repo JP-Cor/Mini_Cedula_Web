@@ -1,655 +1,155 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Captura de cédula con cámara</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captura Cédula PRO</title>
 
-  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f3f6fb;
-      color: #1f2937;
-    }
-    .container {
-      max-width: 760px;
-      margin: auto;
-      padding: 16px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.08);
-    }
-    h1,h2,h3 { margin-top: 0; }
-    .small { font-size: 13px; color: #6b7280; line-height: 1.5; }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid #d1d5db;
-      margin-top: 8px;
-      margin-bottom: 12px;
-      font-size: 16px;
-    }
-    button {
-      background: #111827;
-      color: white;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button.secondary { background: #4b5563; }
-    button:disabled { opacity: .6; cursor: not-allowed; }
+<style>
+body{font-family:Arial;margin:0;background:#111;color:#fff}
+.container{padding:10px}
 
-    .camera-shell {
-      position: relative;
-      width: 100%;
-      border-radius: 18px;
-      overflow: hidden;
-      background: #000;
-      aspect-ratio: 3 / 4;
-    }
+.camera{
+  position:relative;
+  width:100%;
+  height:75vh;
+  background:#000;
+}
 
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      background: #000;
-    }
+video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
-    .overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
+/* MARCO REAL */
+.frame{
+  position:absolute;
+  left:15%;
+  top:30%;
+  width:70%;
+  height:30%;
+  border:3px solid #00ffcc;
+  border-radius:12px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,0.5);
+}
 
-    .overlay::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
-        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
-        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
-        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45));
-      background-size:
-        100% 18%,
-        100% 18%,
-        18% 64%,
-        18% 64%;
-      background-position:
-        top,
-        bottom,
-        left 18% top 18%,
-        right 18% top 18%;
-      background-repeat: no-repeat;
-    }
+button{
+  width:100%;
+  padding:15px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  background:#00ffcc;
+  font-weight:bold;
+}
 
-    .doc-frame {
-      position: absolute;
-      left: 18%;
-      right: 18%;
-      top: 18%;
-      bottom: 18%;
-      border: 3px solid rgba(255,255,255,.95);
-      border-radius: 16px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.20);
-    }
-
-    .corner {
-      position: absolute;
-      width: 26px;
-      height: 26px;
-      border-color: #60a5fa;
-      border-style: solid;
-      border-width: 0;
-    }
-    .tl { top: calc(18% - 2px); left: calc(18% - 2px); border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 8px; }
-    .tr { top: calc(18% - 2px); right: calc(18% - 2px); border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 8px; }
-    .bl { bottom: calc(18% - 2px); left: calc(18% - 2px); border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 8px; }
-    .br { bottom: calc(18% - 2px); right: calc(18% - 2px); border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 8px; }
-
-    .preview {
-      width: 100%;
-      border-radius: 14px;
-      border: 1px solid #d1d5db;
-      margin-top: 10px;
-      display: none;
-    }
-
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    label {
-      display: block;
-      font-weight: bold;
-      margin-top: 8px;
-      margin-bottom: 6px;
-    }
-
-    a.link-btn {
-      display: block;
-      text-decoration: none;
-      font-weight: bold;
-      margin-top: 10px;
-      color: #2563eb;
-    }
-
-    canvas { display: none; }
-
-    @media (max-width: 640px) {
-      .grid2 {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+img{
+  width:100%;
+  margin-top:10px;
+  border-radius:10px;
+}
+</style>
 </head>
+
 <body>
-  <div class="container">
-    <div class="card">
-      <h1>Captura de cédula</h1>
-      <div class="small">
-        Alinea el documento dentro del rectángulo y toma la foto. El sistema intentará recortarlo automáticamente.
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>1) Frente</h2>
-
-      <div class="camera-shell">
-        <video id="videoFront" autoplay playsinline muted></video>
-        <div class="overlay">
-          <div class="doc-frame"></div>
-          <div class="corner tl"></div>
-          <div class="corner tr"></div>
-          <div class="corner bl"></div>
-          <div class="corner br"></div>
-        </div>
-      </div>
-
-      <div class="grid2">
-        <button id="startFrontBtn">Abrir cámara frente</button>
-        <button id="captureFrontBtn" class="secondary" disabled>Tomar frente</button>
-      </div>
-
-      <img id="frontPreview" class="preview" alt="Frente recortado">
-    </div>
-
-    <div class="card">
-      <h2>2) Reverso</h2>
-
-      <div class="camera-shell">
-        <video id="videoBack" autoplay playsinline muted></video>
-        <div class="overlay">
-          <div class="doc-frame"></div>
-          <div class="corner tl"></div>
-          <div class="corner tr"></div>
-          <div class="corner bl"></div>
-          <div class="corner br"></div>
-        </div>
-      </div>
-
-      <div class="grid2">
-        <button id="startBackBtn">Abrir cámara reverso</button>
-        <button id="captureBackBtn" class="secondary" disabled>Tomar reverso</button>
-      </div>
-
-      <img id="backPreview" class="preview" alt="Reverso recortado">
-    </div>
-
-    <div class="card">
-      <h2>3) Datos detectados</h2>
-
-      <label>Nombre completo</label>
-      <input id="fullName" type="text" placeholder="Se llenará automáticamente">
-
-      <label>Número de cédula</label>
-      <input id="idNumber" type="text" placeholder="Se llenará automáticamente">
-
-      <label>Correo del cliente</label>
-      <input id="clientEmail" type="email" placeholder="cliente@correo.com">
-
-      <button id="ocrBtn">Leer datos del frente</button>
-      <div id="ocrStatus" class="small"></div>
-    </div>
-
-    <div class="card">
-      <h2>4) PDF y compartir</h2>
-      <button id="pdfBtn">Generar PDF</button>
-      <button id="shareBtn" class="secondary">Compartir PDF</button>
-      <a id="mailLink" class="link-btn" href="#" target="_blank">Abrir correo</a>
-      <a id="waLink" class="link-btn" href="#" target="_blank">Abrir WhatsApp</a>
-      <div id="shareStatus" class="small"></div>
-    </div>
-  </div>
-
-  <canvas id="captureCanvas"></canvas>
-
-  <script>
-    const { jsPDF } = window.jspdf;
-
-    let cvReady = false;
-    let frontBlob = null;
-    let backBlob = null;
-    let pdfBlob = null;
-
-    let streamFront = null;
-    let streamBack = null;
-
-    const videoFront = document.getElementById("videoFront");
-    const videoBack = document.getElementById("videoBack");
-    const startFrontBtn = document.getElementById("startFrontBtn");
-    const captureFrontBtn = document.getElementById("captureFrontBtn");
-    const startBackBtn = document.getElementById("startBackBtn");
-    const captureBackBtn = document.getElementById("captureBackBtn");
-
-    const frontPreview = document.getElementById("frontPreview");
-    const backPreview = document.getElementById("backPreview");
-
-    const fullName = document.getElementById("fullName");
-    const idNumber = document.getElementById("idNumber");
-    const clientEmail = document.getElementById("clientEmail");
-    const ocrBtn = document.getElementById("ocrBtn");
-    const ocrStatus = document.getElementById("ocrStatus");
-    const pdfBtn = document.getElementById("pdfBtn");
-    const shareBtn = document.getElementById("shareBtn");
-    const shareStatus = document.getElementById("shareStatus");
-    const mailLink = document.getElementById("mailLink");
-    const waLink = document.getElementById("waLink");
-
-    const captureCanvas = document.getElementById("captureCanvas");
-    const capCtx = captureCanvas.getContext("2d");
-
-    function waitForOpenCV() {
-      return new Promise((resolve) => {
-        const check = () => {
-          if (window.cv && cv.Mat) {
-            cvReady = true;
-            resolve();
-          } else {
-            setTimeout(check, 200);
-          }
-        };
-        check();
-      });
-    }
-
-    async function startCamera(videoEl, which) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" }
-          }
-        });
-
-        videoEl.srcObject = stream;
-        await videoEl.play();
-
-        if (which === "front") {
-          if (streamFront) stopStream(streamFront);
-          streamFront = stream;
-          captureFrontBtn.disabled = false;
-        } else {
-          if (streamBack) stopStream(streamBack);
-          streamBack = stream;
-          captureBackBtn.disabled = false;
-        }
-      } catch (err) {
-        alert("No se pudo abrir la cámara. Revisa permisos del navegador.");
-        console.error(err);
-      }
-    }
-
-    function stopStream(stream) {
-      if (!stream) return;
-      stream.getTracks().forEach(track => track.stop());
-    }
-
-    function captureFromVideo(videoEl) {
-      const vw = videoEl.videoWidth;
-      const vh = videoEl.videoHeight;
-
-      captureCanvas.width = vw;
-      captureCanvas.height = vh;
-      capCtx.drawImage(videoEl, 0, 0, vw, vh);
-
-      return captureCanvas.toDataURL("image/jpeg", 0.95);
-    }
-
-    function orderPoints(pts) {
-      const sum = pts.map(p => p.x + p.y);
-      const diff = pts.map(p => p.x - p.y);
-
-      const tl = pts[sum.indexOf(Math.min(...sum))];
-      const br = pts[sum.indexOf(Math.max(...sum))];
-      const tr = pts[diff.indexOf(Math.max(...diff))];
-      const bl = pts[diff.indexOf(Math.min(...diff))];
-
-      return [tl, tr, br, bl];
-    }
-
-    function distance(a, b) {
-      return Math.hypot(a.x - b.x, a.y - b.y);
-    }
-
-    function matToBlob(mat) {
-      const canvas = document.createElement("canvas");
-      canvas.width = mat.cols;
-      canvas.height = mat.rows;
-      cv.imshow(canvas, mat);
-
-      return new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.95);
-      });
-    }
-
-    async function autoCropDocument(dataUrl) {
-      await waitForOpenCV();
-
-      let src = null, gray = null, blur = null, edges = null, contours = null, hierarchy = null;
-      let warped = null, dst = null;
-
-      try {
-        const img = new Image();
-        img.src = dataUrl;
-        await new Promise(resolve => img.onload = resolve);
-
-        const tmpCanvas = document.createElement("canvas");
-        tmpCanvas.width = img.width;
-        tmpCanvas.height = img.height;
-        const ctx = tmpCanvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-
-        src = cv.imread(tmpCanvas);
-        gray = new cv.Mat();
-        blur = new cv.Mat();
-        edges = new cv.Mat();
-        contours = new cv.MatVector();
-        hierarchy = new cv.Mat();
-
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-        cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-        cv.Canny(blur, edges, 75, 200);
-
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-        let bestQuad = null;
-        let bestArea = 0;
-
-        for (let i = 0; i < contours.size(); i++) {
-          const contour = contours.get(i);
-          const peri = cv.arcLength(contour, true);
-          const approx = new cv.Mat();
-
-          cv.approxPolyDP(contour, approx, 0.02 * peri, true);
-
-          if (approx.rows === 4) {
-            const area = cv.contourArea(approx);
-            if (area > bestArea) {
-              bestArea = area;
-              if (bestQuad) bestQuad.delete();
-              bestQuad = approx;
-            } else {
-              approx.delete();
-            }
-          } else {
-            approx.delete();
-          }
-          contour.delete();
-        }
-
-        if (!bestQuad || bestArea < 50000) {
-          const fallbackBlob = await dataUrlToBlob(dataUrl);
-          if (bestQuad) bestQuad.delete();
-          return fallbackBlob;
-        }
-
-        const pts = [];
-        for (let i = 0; i < 4; i++) {
-          pts.push({
-            x: bestQuad.intPtr(i, 0)[0],
-            y: bestQuad.intPtr(i, 0)[1]
-          });
-        }
-
-        const [tl, tr, br, bl] = orderPoints(pts);
-
-        const widthA = distance(br, bl);
-        const widthB = distance(tr, tl);
-        const maxWidth = Math.max(Math.round(widthA), Math.round(widthB));
-
-        const heightA = distance(tr, br);
-        const heightB = distance(tl, bl);
-        const maxHeight = Math.max(Math.round(heightA), Math.round(heightB));
-
-        const outW = Math.max(maxWidth, maxHeight);
-        const outH = Math.min(maxWidth, maxHeight);
-
-        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          tl.x, tl.y,
-          tr.x, tr.y,
-          br.x, br.y,
-          bl.x, bl.y
-        ]);
-
-        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          0, 0,
-          outW - 1, 0,
-          outW - 1, outH - 1,
-          0, outH - 1
-        ]);
-
-        dst = new cv.Mat();
-        const M = cv.getPerspectiveTransform(srcTri, dstTri);
-
-        warped = new cv.Mat();
-        cv.warpPerspective(
-          src,
-          warped,
-          M,
-          new cv.Size(outW, outH),
-          cv.INTER_LINEAR,
-          cv.BORDER_CONSTANT,
-          new cv.Scalar()
-        );
-
-        // Fuerza horizontal
-        if (warped.rows > warped.cols) {
-          const rotated = new cv.Mat();
-          cv.rotate(warped, rotated, cv.ROTATE_90_CLOCKWISE);
-          warped.delete();
-          warped = rotated;
-        }
-
-        const blob = await matToBlob(warped);
-
-        srcTri.delete();
-        dstTri.delete();
-        M.delete();
-        bestQuad.delete();
-
-        return blob;
-      } catch (err) {
-        console.error("Fallo autocrop:", err);
-        return await dataUrlToBlob(dataUrl);
-      } finally {
-        if (src) src.delete();
-        if (gray) gray.delete();
-        if (blur) blur.delete();
-        if (edges) edges.delete();
-        if (contours) contours.delete();
-        if (hierarchy) hierarchy.delete();
-        if (warped) warped.delete();
-        if (dst) dst.delete();
-      }
-    }
-
-    function dataUrlToBlob(dataUrl) {
-      return fetch(dataUrl).then(r => r.blob());
-    }
-
-    async function takePhoto(which) {
-      const videoEl = which === "front" ? videoFront : videoBack;
-      const dataUrl = captureFromVideo(videoEl);
-
-      const blob = await autoCropDocument(dataUrl);
-      const previewUrl = URL.createObjectURL(blob);
-
-      if (which === "front") {
-        frontBlob = blob;
-        frontPreview.src = previewUrl;
-        frontPreview.style.display = "block";
-        stopStream(streamFront);
-        streamFront = null;
-        videoFront.srcObject = null;
-        captureFrontBtn.disabled = true;
-      } else {
-        backBlob = blob;
-        backPreview.src = previewUrl;
-        backPreview.style.display = "block";
-        stopStream(streamBack);
-        streamBack = null;
-        videoBack.srcObject = null;
-        captureBackBtn.disabled = true;
-      }
-    }
-
-    async function blobToDataURL(blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    async function runOCR() {
-      if (!frontBlob) {
-        ocrStatus.textContent = "Primero toma la foto del frente.";
-        return;
-      }
-
-      ocrStatus.textContent = "Leyendo texto del frente...";
-      try {
-        const result = await Tesseract.recognize(frontBlob, "spa");
-        const text = result.data.text || "";
-        fullName.value = extractName(text);
-        idNumber.value = extractId(text);
-        ocrStatus.textContent = "Listo. Revisa y corrige los campos si hace falta.";
-      } catch (err) {
-        console.error(err);
-        ocrStatus.textContent = "No se pudo leer el texto. Intenta con mejor luz.";
-      }
-    }
-
-    function extractId(text) {
-      const cleaned = text.replace(/\s+/g, " ");
-      const match = cleaned.match(/\b\d{1,2}-?\d{3,4}-?\d{3,4}\b|\b\d{9,12}\b/);
-      return match ? match[0] : "";
-    }
-
-    function extractName(text) {
-      const lines = text.split("\n").map(x => x.trim()).filter(Boolean);
-      const candidates = lines.filter(l =>
-        /[A-ZÁÉÍÓÚÑ]{3,}/i.test(l) &&
-        l.length > 6 &&
-        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA|DOCUMENTO|NACIONALIDAD/i.test(l)
-      );
-      return candidates.slice(0, 2).join(" ");
-    }
-
-    async function generatePDF() {
-      if (!frontBlob) {
-        shareStatus.textContent = "Necesitas la foto del frente.";
-        return;
-      }
-
-      shareStatus.textContent = "Generando PDF...";
-      try {
-        const doc = new jsPDF();
-        const frontData = await blobToDataURL(frontBlob);
-        const backData = backBlob ? await blobToDataURL(backBlob) : null;
-
-        doc.setFontSize(16);
-        doc.text("Documento de identificación", 14, 16);
-        doc.setFontSize(11);
-        doc.text(`Nombre: ${fullName.value || "No detectado"}`, 14, 28);
-        doc.text(`Cédula: ${idNumber.value || "No detectada"}`, 14, 36);
-
-        doc.text("Frente:", 14, 48);
-        doc.addImage(frontData, "JPEG", 14, 52, 85, 54);
-
-        if (backData) {
-          doc.text("Reverso:", 110, 48);
-          doc.addImage(backData, "JPEG", 110, 52, 85, 54);
-        }
-
-        pdfBlob = doc.output("blob");
-
-        const email = encodeURIComponent(clientEmail.value || "");
-        const subject = encodeURIComponent("PDF de identificación");
-        const body = encodeURIComponent("Te comparto el PDF generado desde la web.");
-        mailLink.href = `mailto:${email}?subject=${subject}&body=${body}`;
-        waLink.href = `https://wa.me/?text=${encodeURIComponent("Te comparto el PDF generado desde la web.")}`;
-
-        shareStatus.textContent = "PDF listo.";
-      } catch (err) {
-        console.error(err);
-        shareStatus.textContent = "No se pudo generar el PDF.";
-      }
-    }
-
-    async function sharePDF() {
-      if (!pdfBlob) {
-        await generatePDF();
-      }
-      if (!pdfBlob) return;
-
-      const file = new File([pdfBlob], "identificacion.pdf", { type: "application/pdf" });
-
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: "PDF de identificación",
-            text: "Comparto el PDF generado.",
-            files: [file]
-          });
-          shareStatus.textContent = "PDF compartido correctamente.";
-        } else {
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "identificacion.pdf";
-          a.click();
-          shareStatus.textContent = "Se descargó el PDF porque este navegador no permite compartir archivo directo.";
-        }
-      } catch (err) {
-        console.error(err);
-        shareStatus.textContent = "No se pudo compartir el PDF.";
-      }
-    }
-
-    startFrontBtn.addEventListener("click", () => startCamera(videoFront, "front"));
-    startBackBtn.addEventListener("click", () => startCamera(videoBack, "back"));
-    captureFrontBtn.addEventListener("click", () => takePhoto("front"));
-    captureBackBtn.addEventListener("click", () => takePhoto("back"));
-    ocrBtn.addEventListener("click", runOCR);
-    pdfBtn.addEventListener("click", generatePDF);
-    shareBtn.addEventListener("click", sharePDF);
-  </script>
+
+<div class="container">
+
+<div class="camera">
+  <video id="video" autoplay playsinline></video>
+  <div class="frame"></div>
+</div>
+
+<button onclick="startCamera()">Abrir Cámara</button>
+<button onclick="capture()">Tomar Foto</button>
+
+<img id="preview">
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+</div>
+
+<script>
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+let preview = document.getElementById("preview");
+
+let stream;
+
+async function startCamera(){
+  stream = await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:"environment"}
+  });
+  video.srcObject = stream;
+}
+
+/* 🔥 AQUÍ ESTÁ LA MAGIA */
+async function capture(){
+
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+
+  canvas.width = vw;
+  canvas.height = vh;
+
+  ctx.drawImage(video,0,0,vw,vh);
+
+  // 🔥 RECORTE EXACTO DEL MARCO
+  const x = vw * 0.15;
+  const y = vh * 0.30;
+  const w = vw * 0.70;
+  const h = vh * 0.30;
+
+  let crop = ctx.getImageData(x,y,w,h);
+
+  // Canvas nuevo para el recorte
+  let tempCanvas = document.createElement("canvas");
+  tempCanvas.width = w;
+  tempCanvas.height = h;
+  let tctx = tempCanvas.getContext("2d");
+  tctx.putImageData(crop,0,0);
+
+  // 🔥 INTENTA ENDEREZAR
+  let finalCanvas = autoRotate(tempCanvas);
+
+  preview.src = finalCanvas.toDataURL("image/jpeg",0.95);
+
+  stopCamera();
+}
+
+function stopCamera(){
+  if(stream){
+    stream.getTracks().forEach(t=>t.stop());
+  }
+}
+
+/* 🔥 AUTO ROTAR */
+function autoRotate(canvasInput){
+
+  let w = canvasInput.width;
+  let h = canvasInput.height;
+
+  // si está vertical la gira
+  if(h > w){
+    let canvas = document.createElement("canvas");
+    canvas.width = h;
+    canvas.height = w;
+    let ctx = canvas.getContext("2d");
+
+    ctx.translate(h/2,w/2);
+    ctx.rotate(Math.PI/2);
+    ctx.drawImage(canvasInput,-w/2,-h/2);
+
+    return canvas;
+  }
+
+  return canvasInput;
+}
+</script>
+
 </body>
 </html>
