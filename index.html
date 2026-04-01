@@ -8,61 +8,175 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+
   <style>
-    body{
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
       font-family: Arial, sans-serif;
-      margin:0;
-      background:#f4f6fb;
-      color:#1f2937;
+      margin: 0;
+      background: #f4f6fb;
+      color: #1f2937;
     }
-    .container{
-      max-width:700px;
-      margin:auto;
-      padding:16px;
+
+    .container {
+      max-width: 760px;
+      margin: auto;
+      padding: 16px;
     }
-    .card{
-      background:white;
-      padding:16px;
-      border-radius:16px;
-      margin-bottom:16px;
-      box-shadow:0 4px 16px rgba(0,0,0,0.08);
+
+    .card {
+      background: white;
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     }
-    h1,h2{margin-top:0}
-    input, button{
-      width:100%;
-      padding:12px;
-      margin-top:8px;
-      margin-bottom:12px;
-      border-radius:12px;
-      border:1px solid #d1d5db;
-      box-sizing:border-box;
-      font-size:16px;
+
+    h1, h2, h3 {
+      margin-top: 0;
     }
-    button{
-      background:#111827;
-      color:white;
-      border:none;
-      font-weight:bold;
-      cursor:pointer;
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+      margin-bottom: 6px;
     }
-    button:hover{
-      opacity:.95;
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      font-size: 16px;
     }
-    img{
-      width:100%;
-      border-radius:12px;
-      margin-top:8px;
-      border:1px solid #ddd;
+
+    button {
+      background: #111827;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
     }
-    .small{
-      font-size:13px;
-      color:#6b7280;
+
+    button:hover {
+      opacity: .96;
     }
-    a.action-link{
-      display:block;
-      margin-top:10px;
-      font-weight:bold;
-      text-decoration:none;
+
+    img.preview {
+      width: 100%;
+      border-radius: 12px;
+      margin-top: 8px;
+      border: 1px solid #ddd;
+      display: none;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    a.action-link {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+      text-decoration: none;
+      color: #2563eb;
+      word-break: break-word;
+    }
+
+    .camera-guide-wrap {
+      position: relative;
+      width: 100%;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+
+    .camera-guide {
+      width: 100%;
+      height: 180px;
+      border: 3px dashed #2563eb;
+      border-radius: 16px;
+      position: relative;
+      background: rgba(37, 99, 235, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #2563eb;
+      font-weight: bold;
+      padding: 14px;
+    }
+
+    .camera-guide::after {
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      pointer-events: none;
+    }
+
+    #cropModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      z-index: 9999;
+      padding: 10px;
+    }
+
+    #cropModalContent {
+      background: #fff;
+      max-width: 760px;
+      height: 95vh;
+      margin: auto;
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #cropImageWrap {
+      flex: 1;
+      min-height: 320px;
+      overflow: hidden;
+      background: #f3f4f6;
+      border-radius: 12px;
+    }
+
+    #cropImage {
+      display: block;
+      max-width: 100%;
+    }
+
+    .crop-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn-secondary {
+      background: #4b5563;
+    }
+
+    @media (max-width: 640px) {
+      .camera-guide {
+        height: 150px;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
@@ -71,7 +185,7 @@
     <div class="card">
       <h1>Mini sistema de cédula</h1>
       <p class="small">
-        Toma dos fotos, extrae nombre y número, genera un PDF y permite compartirlo.
+        Toma dos fotos, recórtalas en horizontal, extrae nombre y número, genera un PDF y permite compartirlo.
       </p>
     </div>
 
@@ -80,11 +194,21 @@
 
       <label>Foto frente</label>
       <input type="file" id="frontInput" accept="image/*" capture="environment">
-      <img id="frontPreview" style="display:none;" alt="Frente">
+      <div class="camera-guide-wrap">
+        <div class="camera-guide">
+          Coloca la cédula en posición horizontal dentro de este marco
+        </div>
+      </div>
+      <img id="frontPreview" class="preview" alt="Frente">
 
       <label>Foto reverso</label>
       <input type="file" id="backInput" accept="image/*" capture="environment">
-      <img id="backPreview" style="display:none;" alt="Reverso">
+      <div class="camera-guide-wrap">
+        <div class="camera-guide">
+          Coloca la cédula en posición horizontal dentro de este marco
+        </div>
+      </div>
+      <img id="backPreview" class="preview" alt="Reverso">
 
       <button id="ocrBtn">Leer datos</button>
       <p id="ocrStatus" class="small"></p>
@@ -116,12 +240,33 @@
     </div>
   </div>
 
+  <!-- Modal de recorte -->
+  <div id="cropModal">
+    <div id="cropModalContent">
+      <h3>Ajusta la cédula dentro del marco</h3>
+      <p class="small">Mueve o ajusta la imagen para dejar solo el documento. Se guardará en horizontal.</p>
+
+      <div id="cropImageWrap">
+        <img id="cropImage" alt="Recorte">
+      </div>
+
+      <div class="crop-actions">
+        <button id="cancelCropBtn" type="button" class="btn-secondary">Cancelar</button>
+        <button id="applyCropBtn" type="button">Usar recorte</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const { jsPDF } = window.jspdf;
 
     let frontFile = null;
     let backFile = null;
     let pdfBlob = null;
+
+    let cropper = null;
+    let currentSide = null;
+    let tempImageURL = null;
 
     const frontInput = document.getElementById("frontInput");
     const backInput = document.getElementById("backInput");
@@ -138,43 +283,169 @@
     const mailLink = document.getElementById("mailLink");
     const waLink = document.getElementById("waLink");
 
+    const cropModal = document.getElementById("cropModal");
+    const cropImage = document.getElementById("cropImage");
+    const cancelCropBtn = document.getElementById("cancelCropBtn");
+    const applyCropBtn = document.getElementById("applyCropBtn");
+
     frontInput.addEventListener("change", (e) => handleImage(e, "front"));
     backInput.addEventListener("change", (e) => handleImage(e, "back"));
     ocrBtn.addEventListener("click", runOCR);
     pdfBtn.addEventListener("click", generatePDF);
     shareBtn.addEventListener("click", sharePDF);
+    cancelCropBtn.addEventListener("click", cancelCrop);
+    applyCropBtn.addEventListener("click", applyCrop);
 
     function handleImage(event, side) {
       const file = event.target.files[0];
       if (!file) return;
 
+      currentSide = side;
+
+      if (tempImageURL) {
+        URL.revokeObjectURL(tempImageURL);
+      }
+
+      tempImageURL = URL.createObjectURL(file);
+      cropImage.src = tempImageURL;
+      cropModal.style.display = "block";
+
+      cropImage.onload = () => {
+        if (cropper) {
+          cropper.destroy();
+        }
+
+        cropper = new Cropper(cropImage, {
+          aspectRatio: 1.6,
+          viewMode: 1,
+          dragMode: "move",
+          autoCropArea: 0.92,
+          responsive: true,
+          restore: false,
+          guides: true,
+          center: true,
+          highlight: true,
+          cropBoxMovable: true,
+          cropBoxResizable: true,
+          toggleDragModeOnDblclick: false,
+          rotatable: true,
+          scalable: false,
+          background: false
+        });
+      };
+    }
+
+    function cancelCrop() {
+      cropModal.style.display = "none";
+
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+
+      if (currentSide === "front") {
+        frontInput.value = "";
+      } else if (currentSide === "back") {
+        backInput.value = "";
+      }
+    }
+
+    async function applyCrop() {
+      if (!cropper) return;
+
+      const canvas = cropper.getCroppedCanvas({
+        width: 1200,
+        height: 750,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: "high",
+        fillColor: "#ffffff"
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+
+        const tempFile = new File(
+          [blob],
+          currentSide === "front" ? "front.jpg" : "back.jpg",
+          { type: "image/jpeg" }
+        );
+
+        const croppedFile = await ensureLandscape(tempFile);
+        const previewURL = URL.createObjectURL(croppedFile);
+
+        if (currentSide === "front") {
+          frontFile = croppedFile;
+          frontPreview.src = previewURL;
+          frontPreview.style.display = "block";
+        } else {
+          backFile = croppedFile;
+          backPreview.src = previewURL;
+          backPreview.style.display = "block";
+        }
+
+        cropModal.style.display = "none";
+
+        if (cropper) {
+          cropper.destroy();
+          cropper = null;
+        }
+      }, "image/jpeg", 0.95);
+    }
+
+    async function ensureLandscape(file) {
+      const img = new Image();
       const url = URL.createObjectURL(file);
 
-      if (side === "front") {
-        frontFile = file;
-        frontPreview.src = url;
-        frontPreview.style.display = "block";
-      } else {
-        backFile = file;
-        backPreview.src = url;
-        backPreview.style.display = "block";
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = url;
+      });
+
+      if (img.width >= img.height) {
+        URL.revokeObjectURL(url);
+        return file;
       }
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = img.height;
+      canvas.height = img.width;
+
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+      URL.revokeObjectURL(url);
+
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: "image/jpeg" }));
+        }, "image/jpeg", 0.95);
+      });
     }
 
     async function runOCR() {
       if (!frontFile) {
-        ocrStatus.textContent = "Primero sube la foto del frente.";
+        ocrStatus.textContent = "Primero sube y recorta la foto del frente.";
         return;
       }
 
-      ocrStatus.textContent = "Leyendo texto...";
-      const result = await Tesseract.recognize(frontFile, "spa");
-      const text = result.data.text || "";
+      ocrStatus.textContent = "Leyendo texto del frente, espera un momento...";
 
-      ocrStatus.textContent = "Lectura completada.";
+      try {
+        const result = await Tesseract.recognize(frontFile, "spa");
+        const text = result.data.text || "";
 
-      fullName.value = extraerNombre(text);
-      idNumber.value = extraerCedula(text);
+        fullName.value = extraerNombre(text);
+        idNumber.value = extraerCedula(text);
+
+        ocrStatus.textContent =
+          "Lectura completada. Revisa y corrige manualmente si algún dato salió mal.";
+      } catch (error) {
+        console.error(error);
+        ocrStatus.textContent = "No se pudo leer la imagen. Intenta con una foto más clara.";
+      }
     }
 
     function extraerCedula(text) {
@@ -192,7 +463,7 @@
       const candidatos = lines.filter(l =>
         /[A-ZÁÉÍÓÚÑ]{3,}/i.test(l) &&
         l.length > 5 &&
-        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA/i.test(l)
+        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA|NACIONALIDAD|DOCUMENTO/i.test(l)
       );
 
       return candidatos.slice(0, 2).join(" ");
@@ -215,34 +486,44 @@
 
       shareStatus.textContent = "Generando PDF...";
 
-      const doc = new jsPDF();
-      const frontData = await fileToDataURL(frontFile);
-      const backData = backFile ? await fileToDataURL(backFile) : null;
+      try {
+        const doc = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4"
+        });
 
-      doc.setFontSize(16);
-      doc.text("Documento de identificación", 14, 16);
+        const frontData = await fileToDataURL(frontFile);
+        const backData = backFile ? await fileToDataURL(backFile) : null;
 
-      doc.setFontSize(11);
-      doc.text("Nombre: " + (fullName.value || "No detectado"), 14, 28);
-      doc.text("Cédula: " + (idNumber.value || "No detectada"), 14, 36);
+        doc.setFontSize(16);
+        doc.text("Documento de identificación", 14, 16);
 
-      doc.text("Frente:", 14, 48);
-      doc.addImage(frontData, "JPEG", 14, 52, 80, 50);
+        doc.setFontSize(11);
+        doc.text("Nombre: " + (fullName.value || "No detectado"), 14, 28);
+        doc.text("Cédula: " + (idNumber.value || "No detectada"), 14, 36);
 
-      if (backData) {
-        doc.text("Reverso:", 110, 48);
-        doc.addImage(backData, "JPEG", 110, 52, 80, 50);
+        doc.text("Frente:", 14, 48);
+        doc.addImage(frontData, "JPEG", 14, 52, 85, 54);
+
+        if (backData) {
+          doc.text("Reverso:", 110, 48);
+          doc.addImage(backData, "JPEG", 110, 52, 85, 54);
+        }
+
+        pdfBlob = doc.output("blob");
+
+        const email = encodeURIComponent(clientEmail.value || "");
+        const subject = encodeURIComponent("PDF de identificación");
+        const body = encodeURIComponent("Adjunto el PDF generado desde la mini web.");
+        mailLink.href = `mailto:${email}?subject=${subject}&body=${body}`;
+
+        waLink.href = "https://wa.me/?text=" + encodeURIComponent("Te comparto el PDF generado desde la mini web.");
+        shareStatus.textContent = "PDF listo.";
+      } catch (error) {
+        console.error(error);
+        shareStatus.textContent = "No se pudo generar el PDF.";
       }
-
-      pdfBlob = doc.output("blob");
-
-      const email = encodeURIComponent(clientEmail.value || "");
-      const subject = encodeURIComponent("PDF de identificación");
-      const body = encodeURIComponent("Adjunto el PDF generado desde la web.");
-      mailLink.href = `mailto:${email}?subject=${subject}&body=${body}`;
-
-      waLink.href = "https://wa.me/?text=" + encodeURIComponent("Te comparto el PDF generado desde la mini web.");
-      shareStatus.textContent = "PDF listo.";
     }
 
     async function sharePDF() {
@@ -256,20 +537,25 @@
         type: "application/pdf"
       });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: "PDF de identificación",
-          text: "Comparto el PDF generado.",
-          files: [file]
-        });
-        shareStatus.textContent = "PDF compartido.";
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "identificacion.pdf";
-        a.click();
-        shareStatus.textContent = "El navegador no permite compartir directo. Se descargó el PDF.";
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "PDF de identificación",
+            text: "Comparto el PDF generado.",
+            files: [file]
+          });
+          shareStatus.textContent = "PDF compartido correctamente.";
+        } else {
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "identificacion.pdf";
+          a.click();
+          shareStatus.textContent = "Tu navegador no permite compartir directo. Se descargó el PDF.";
+        }
+      } catch (error) {
+        console.error(error);
+        shareStatus.textContent = "No se pudo compartir el PDF.";
       }
     }
   </script>
