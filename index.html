@@ -3,64 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Captura de Cédula</title>
+  <title>Captura de cédula con cámara</title>
 
+  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"
-  />
-  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      background: #f4f6fb;
+      background: #f3f6fb;
       color: #1f2937;
     }
-
     .container {
       max-width: 760px;
       margin: auto;
       padding: 16px;
     }
-
     .card {
-      background: white;
+      background: #fff;
+      border-radius: 18px;
       padding: 16px;
-      border-radius: 16px;
       margin-bottom: 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 16px rgba(0,0,0,.08);
     }
-
-    h1, h2, h3 {
-      margin-top: 0;
-    }
-
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 10px;
-      margin-bottom: 6px;
-    }
-
+    h1,h2,h3 { margin-top: 0; }
+    .small { font-size: 13px; color: #6b7280; line-height: 1.5; }
     input, button {
       width: 100%;
       padding: 12px;
-      margin-top: 6px;
-      margin-bottom: 12px;
       border-radius: 12px;
       border: 1px solid #d1d5db;
+      margin-top: 8px;
+      margin-bottom: 12px;
       font-size: 16px;
     }
-
     button {
       background: #111827;
       color: white;
@@ -68,114 +47,112 @@
       font-weight: bold;
       cursor: pointer;
     }
+    button.secondary { background: #4b5563; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
 
-    button:hover {
-      opacity: .96;
-    }
-
-    img.preview {
+    .camera-shell {
+      position: relative;
       width: 100%;
-      border-radius: 12px;
-      margin-top: 8px;
-      border: 1px solid #ddd;
-      display: none;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 3 / 4;
     }
 
-    .small {
-      font-size: 13px;
-      color: #6b7280;
-      line-height: 1.5;
-    }
-
-    a.action-link {
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
       display: block;
-      margin-top: 10px;
-      font-weight: bold;
-      text-decoration: none;
-      color: #2563eb;
-      word-break: break-word;
+      background: #000;
     }
 
-    .camera-guide-wrap {
-      position: relative;
-      width: 100%;
-      margin-top: 4px;
-      margin-bottom: 12px;
-    }
-
-    .camera-guide {
-      width: 100%;
-      height: 180px;
-      border: 3px dashed #2563eb;
-      border-radius: 16px;
-      position: relative;
-      background: rgba(37, 99, 235, 0.05);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #2563eb;
-      font-weight: bold;
-      padding: 14px;
-    }
-
-    .camera-guide::after {
-      content: '';
+    .overlay {
       position: absolute;
-      inset: 12px;
-      border: 2px solid rgba(255, 255, 255, 0.95);
-      border-radius: 12px;
+      inset: 0;
       pointer-events: none;
     }
 
-    #cropModal {
-      display: none;
-      position: fixed;
+    .overlay::before {
+      content: "";
+      position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.88);
-      z-index: 9999;
-      padding: 10px;
+      background:
+        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
+        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
+        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
+        linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45));
+      background-size:
+        100% 18%,
+        100% 18%,
+        18% 64%,
+        18% 64%;
+      background-position:
+        top,
+        bottom,
+        left 18% top 18%,
+        right 18% top 18%;
+      background-repeat: no-repeat;
     }
 
-    #cropModalContent {
-      background: #fff;
-      max-width: 760px;
-      height: 95vh;
-      margin: auto;
+    .doc-frame {
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      top: 18%;
+      bottom: 18%;
+      border: 3px solid rgba(255,255,255,.95);
       border-radius: 16px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.20);
     }
 
-    #cropImageWrap {
-      flex: 1;
-      min-height: 320px;
-      overflow: hidden;
-      background: #f3f4f6;
-      border-radius: 12px;
+    .corner {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-color: #60a5fa;
+      border-style: solid;
+      border-width: 0;
+    }
+    .tl { top: calc(18% - 2px); left: calc(18% - 2px); border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 8px; }
+    .tr { top: calc(18% - 2px); right: calc(18% - 2px); border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 8px; }
+    .bl { bottom: calc(18% - 2px); left: calc(18% - 2px); border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 8px; }
+    .br { bottom: calc(18% - 2px); right: calc(18% - 2px); border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 8px; }
+
+    .preview {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid #d1d5db;
+      margin-top: 10px;
+      display: none;
     }
 
-    #cropImage {
-      display: block;
-      max-width: 100%;
-    }
-
-    .crop-actions {
+    .grid2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-top: 12px;
     }
 
-    .btn-secondary {
-      background: #4b5563;
+    label {
+      display: block;
+      font-weight: bold;
+      margin-top: 8px;
+      margin-bottom: 6px;
     }
+
+    a.link-btn {
+      display: block;
+      text-decoration: none;
+      font-weight: bold;
+      margin-top: 10px;
+      color: #2563eb;
+    }
+
+    canvas { display: none; }
 
     @media (max-width: 640px) {
-      .camera-guide {
-        height: 150px;
-        font-size: 14px;
+      .grid2 {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -183,325 +160,435 @@
 <body>
   <div class="container">
     <div class="card">
-      <h1>Mini sistema de cédula</h1>
-      <p class="small">
-        Toma dos fotos, recórtalas en horizontal, extrae nombre y número, genera un PDF y permite compartirlo.
-      </p>
+      <h1>Captura de cédula</h1>
+      <div class="small">
+        Alinea el documento dentro del rectángulo y toma la foto. El sistema intentará recortarlo automáticamente.
+      </div>
     </div>
 
     <div class="card">
-      <h2>1. Subir fotos</h2>
+      <h2>1) Frente</h2>
 
-      <label>Foto frente</label>
-      <input type="file" id="frontInput" accept="image/*" capture="environment">
-      <div class="camera-guide-wrap">
-        <div class="camera-guide">
-          Coloca la cédula en posición horizontal dentro de este marco
+      <div class="camera-shell">
+        <video id="videoFront" autoplay playsinline muted></video>
+        <div class="overlay">
+          <div class="doc-frame"></div>
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
         </div>
       </div>
-      <img id="frontPreview" class="preview" alt="Frente">
 
-      <label>Foto reverso</label>
-      <input type="file" id="backInput" accept="image/*" capture="environment">
-      <div class="camera-guide-wrap">
-        <div class="camera-guide">
-          Coloca la cédula en posición horizontal dentro de este marco
-        </div>
+      <div class="grid2">
+        <button id="startFrontBtn">Abrir cámara frente</button>
+        <button id="captureFrontBtn" class="secondary" disabled>Tomar frente</button>
       </div>
-      <img id="backPreview" class="preview" alt="Reverso">
 
-      <button id="ocrBtn">Leer datos</button>
-      <p id="ocrStatus" class="small"></p>
+      <img id="frontPreview" class="preview" alt="Frente recortado">
     </div>
 
     <div class="card">
-      <h2>2. Datos detectados</h2>
+      <h2>2) Reverso</h2>
+
+      <div class="camera-shell">
+        <video id="videoBack" autoplay playsinline muted></video>
+        <div class="overlay">
+          <div class="doc-frame"></div>
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <button id="startBackBtn">Abrir cámara reverso</button>
+        <button id="captureBackBtn" class="secondary" disabled>Tomar reverso</button>
+      </div>
+
+      <img id="backPreview" class="preview" alt="Reverso recortado">
+    </div>
+
+    <div class="card">
+      <h2>3) Datos detectados</h2>
 
       <label>Nombre completo</label>
-      <input type="text" id="fullName" placeholder="Aquí saldrá el nombre">
+      <input id="fullName" type="text" placeholder="Se llenará automáticamente">
 
       <label>Número de cédula</label>
-      <input type="text" id="idNumber" placeholder="Aquí saldrá la cédula">
+      <input id="idNumber" type="text" placeholder="Se llenará automáticamente">
 
       <label>Correo del cliente</label>
-      <input type="email" id="clientEmail" placeholder="cliente@correo.com">
+      <input id="clientEmail" type="email" placeholder="cliente@correo.com">
+
+      <button id="ocrBtn">Leer datos del frente</button>
+      <div id="ocrStatus" class="small"></div>
     </div>
 
     <div class="card">
-      <h2>3. PDF y compartir</h2>
-
+      <h2>4) PDF y compartir</h2>
       <button id="pdfBtn">Generar PDF</button>
-      <button id="shareBtn">Compartir PDF</button>
-
-      <a id="mailLink" class="action-link" href="#" target="_blank">Abrir correo</a>
-      <a id="waLink" class="action-link" href="#" target="_blank">Abrir WhatsApp</a>
-
-      <p id="shareStatus" class="small"></p>
+      <button id="shareBtn" class="secondary">Compartir PDF</button>
+      <a id="mailLink" class="link-btn" href="#" target="_blank">Abrir correo</a>
+      <a id="waLink" class="link-btn" href="#" target="_blank">Abrir WhatsApp</a>
+      <div id="shareStatus" class="small"></div>
     </div>
   </div>
 
-  <!-- Modal de recorte -->
-  <div id="cropModal">
-    <div id="cropModalContent">
-      <h3>Ajusta la cédula dentro del marco</h3>
-      <p class="small">Mueve o ajusta la imagen para dejar solo el documento. Se guardará en horizontal.</p>
-
-      <div id="cropImageWrap">
-        <img id="cropImage" alt="Recorte">
-      </div>
-
-      <div class="crop-actions">
-        <button id="cancelCropBtn" type="button" class="btn-secondary">Cancelar</button>
-        <button id="applyCropBtn" type="button">Usar recorte</button>
-      </div>
-    </div>
-  </div>
+  <canvas id="captureCanvas"></canvas>
 
   <script>
     const { jsPDF } = window.jspdf;
 
-    let frontFile = null;
-    let backFile = null;
+    let cvReady = false;
+    let frontBlob = null;
+    let backBlob = null;
     let pdfBlob = null;
 
-    let cropper = null;
-    let currentSide = null;
-    let tempImageURL = null;
+    let streamFront = null;
+    let streamBack = null;
 
-    const frontInput = document.getElementById("frontInput");
-    const backInput = document.getElementById("backInput");
+    const videoFront = document.getElementById("videoFront");
+    const videoBack = document.getElementById("videoBack");
+    const startFrontBtn = document.getElementById("startFrontBtn");
+    const captureFrontBtn = document.getElementById("captureFrontBtn");
+    const startBackBtn = document.getElementById("startBackBtn");
+    const captureBackBtn = document.getElementById("captureBackBtn");
+
     const frontPreview = document.getElementById("frontPreview");
     const backPreview = document.getElementById("backPreview");
+
     const fullName = document.getElementById("fullName");
     const idNumber = document.getElementById("idNumber");
     const clientEmail = document.getElementById("clientEmail");
     const ocrBtn = document.getElementById("ocrBtn");
+    const ocrStatus = document.getElementById("ocrStatus");
     const pdfBtn = document.getElementById("pdfBtn");
     const shareBtn = document.getElementById("shareBtn");
-    const ocrStatus = document.getElementById("ocrStatus");
     const shareStatus = document.getElementById("shareStatus");
     const mailLink = document.getElementById("mailLink");
     const waLink = document.getElementById("waLink");
 
-    const cropModal = document.getElementById("cropModal");
-    const cropImage = document.getElementById("cropImage");
-    const cancelCropBtn = document.getElementById("cancelCropBtn");
-    const applyCropBtn = document.getElementById("applyCropBtn");
+    const captureCanvas = document.getElementById("captureCanvas");
+    const capCtx = captureCanvas.getContext("2d");
 
-    frontInput.addEventListener("change", (e) => handleImage(e, "front"));
-    backInput.addEventListener("change", (e) => handleImage(e, "back"));
-    ocrBtn.addEventListener("click", runOCR);
-    pdfBtn.addEventListener("click", generatePDF);
-    shareBtn.addEventListener("click", sharePDF);
-    cancelCropBtn.addEventListener("click", cancelCrop);
-    applyCropBtn.addEventListener("click", applyCrop);
+    function waitForOpenCV() {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (window.cv && cv.Mat) {
+            cvReady = true;
+            resolve();
+          } else {
+            setTimeout(check, 200);
+          }
+        };
+        check();
+      });
+    }
 
-    function handleImage(event, side) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      currentSide = side;
-
-      if (tempImageURL) {
-        URL.revokeObjectURL(tempImageURL);
-      }
-
-      tempImageURL = URL.createObjectURL(file);
-      cropImage.src = tempImageURL;
-      cropModal.style.display = "block";
-
-      cropImage.onload = () => {
-        if (cropper) {
-          cropper.destroy();
-        }
-
-        cropper = new Cropper(cropImage, {
-          aspectRatio: 1.6,
-          viewMode: 1,
-          dragMode: "move",
-          autoCropArea: 0.92,
-          responsive: true,
-          restore: false,
-          guides: true,
-          center: true,
-          highlight: true,
-          cropBoxMovable: true,
-          cropBoxResizable: true,
-          toggleDragModeOnDblclick: false,
-          rotatable: true,
-          scalable: false,
-          background: false
+    async function startCamera(videoEl, which) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" }
+          }
         });
-      };
-    }
 
-    function cancelCrop() {
-      cropModal.style.display = "none";
+        videoEl.srcObject = stream;
+        await videoEl.play();
 
-      if (cropper) {
-        cropper.destroy();
-        cropper = null;
-      }
-
-      if (currentSide === "front") {
-        frontInput.value = "";
-      } else if (currentSide === "back") {
-        backInput.value = "";
-      }
-    }
-
-    async function applyCrop() {
-      if (!cropper) return;
-
-      const canvas = cropper.getCroppedCanvas({
-        width: 1200,
-        height: 750,
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: "high",
-        fillColor: "#ffffff"
-      });
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-
-        const tempFile = new File(
-          [blob],
-          currentSide === "front" ? "front.jpg" : "back.jpg",
-          { type: "image/jpeg" }
-        );
-
-        const croppedFile = await ensureLandscape(tempFile);
-        const previewURL = URL.createObjectURL(croppedFile);
-
-        if (currentSide === "front") {
-          frontFile = croppedFile;
-          frontPreview.src = previewURL;
-          frontPreview.style.display = "block";
+        if (which === "front") {
+          if (streamFront) stopStream(streamFront);
+          streamFront = stream;
+          captureFrontBtn.disabled = false;
         } else {
-          backFile = croppedFile;
-          backPreview.src = previewURL;
-          backPreview.style.display = "block";
+          if (streamBack) stopStream(streamBack);
+          streamBack = stream;
+          captureBackBtn.disabled = false;
         }
-
-        cropModal.style.display = "none";
-
-        if (cropper) {
-          cropper.destroy();
-          cropper = null;
-        }
-      }, "image/jpeg", 0.95);
+      } catch (err) {
+        alert("No se pudo abrir la cámara. Revisa permisos del navegador.");
+        console.error(err);
+      }
     }
 
-    async function ensureLandscape(file) {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
+    function stopStream(stream) {
+      if (!stream) return;
+      stream.getTracks().forEach(track => track.stop());
+    }
 
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.src = url;
-      });
+    function captureFromVideo(videoEl) {
+      const vw = videoEl.videoWidth;
+      const vh = videoEl.videoHeight;
 
-      if (img.width >= img.height) {
-        URL.revokeObjectURL(url);
-        return file;
-      }
+      captureCanvas.width = vw;
+      captureCanvas.height = vh;
+      capCtx.drawImage(videoEl, 0, 0, vw, vh);
 
+      return captureCanvas.toDataURL("image/jpeg", 0.95);
+    }
+
+    function orderPoints(pts) {
+      const sum = pts.map(p => p.x + p.y);
+      const diff = pts.map(p => p.x - p.y);
+
+      const tl = pts[sum.indexOf(Math.min(...sum))];
+      const br = pts[sum.indexOf(Math.max(...sum))];
+      const tr = pts[diff.indexOf(Math.max(...diff))];
+      const bl = pts[diff.indexOf(Math.min(...diff))];
+
+      return [tl, tr, br, bl];
+    }
+
+    function distance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function matToBlob(mat) {
       const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-
-      canvas.width = img.height;
-      canvas.height = img.width;
-
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate(Math.PI / 2);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-
-      URL.revokeObjectURL(url);
+      canvas.width = mat.cols;
+      canvas.height = mat.rows;
+      cv.imshow(canvas, mat);
 
       return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: "image/jpeg" }));
-        }, "image/jpeg", 0.95);
+        canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.95);
       });
     }
 
-    async function runOCR() {
-      if (!frontFile) {
-        ocrStatus.textContent = "Primero sube y recorta la foto del frente.";
-        return;
-      }
+    async function autoCropDocument(dataUrl) {
+      await waitForOpenCV();
 
-      ocrStatus.textContent = "Leyendo texto del frente, espera un momento...";
+      let src = null, gray = null, blur = null, edges = null, contours = null, hierarchy = null;
+      let warped = null, dst = null;
 
       try {
-        const result = await Tesseract.recognize(frontFile, "spa");
-        const text = result.data.text || "";
+        const img = new Image();
+        img.src = dataUrl;
+        await new Promise(resolve => img.onload = resolve);
 
-        fullName.value = extraerNombre(text);
-        idNumber.value = extraerCedula(text);
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = img.width;
+        tmpCanvas.height = img.height;
+        const ctx = tmpCanvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
 
-        ocrStatus.textContent =
-          "Lectura completada. Revisa y corrige manualmente si algún dato salió mal.";
-      } catch (error) {
-        console.error(error);
-        ocrStatus.textContent = "No se pudo leer la imagen. Intenta con una foto más clara.";
+        src = cv.imread(tmpCanvas);
+        gray = new cv.Mat();
+        blur = new cv.Mat();
+        edges = new cv.Mat();
+        contours = new cv.MatVector();
+        hierarchy = new cv.Mat();
+
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+        cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+        cv.Canny(blur, edges, 75, 200);
+
+        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+        let bestQuad = null;
+        let bestArea = 0;
+
+        for (let i = 0; i < contours.size(); i++) {
+          const contour = contours.get(i);
+          const peri = cv.arcLength(contour, true);
+          const approx = new cv.Mat();
+
+          cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+
+          if (approx.rows === 4) {
+            const area = cv.contourArea(approx);
+            if (area > bestArea) {
+              bestArea = area;
+              if (bestQuad) bestQuad.delete();
+              bestQuad = approx;
+            } else {
+              approx.delete();
+            }
+          } else {
+            approx.delete();
+          }
+          contour.delete();
+        }
+
+        if (!bestQuad || bestArea < 50000) {
+          const fallbackBlob = await dataUrlToBlob(dataUrl);
+          if (bestQuad) bestQuad.delete();
+          return fallbackBlob;
+        }
+
+        const pts = [];
+        for (let i = 0; i < 4; i++) {
+          pts.push({
+            x: bestQuad.intPtr(i, 0)[0],
+            y: bestQuad.intPtr(i, 0)[1]
+          });
+        }
+
+        const [tl, tr, br, bl] = orderPoints(pts);
+
+        const widthA = distance(br, bl);
+        const widthB = distance(tr, tl);
+        const maxWidth = Math.max(Math.round(widthA), Math.round(widthB));
+
+        const heightA = distance(tr, br);
+        const heightB = distance(tl, bl);
+        const maxHeight = Math.max(Math.round(heightA), Math.round(heightB));
+
+        const outW = Math.max(maxWidth, maxHeight);
+        const outH = Math.min(maxWidth, maxHeight);
+
+        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          tl.x, tl.y,
+          tr.x, tr.y,
+          br.x, br.y,
+          bl.x, bl.y
+        ]);
+
+        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0,
+          outW - 1, 0,
+          outW - 1, outH - 1,
+          0, outH - 1
+        ]);
+
+        dst = new cv.Mat();
+        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+
+        warped = new cv.Mat();
+        cv.warpPerspective(
+          src,
+          warped,
+          M,
+          new cv.Size(outW, outH),
+          cv.INTER_LINEAR,
+          cv.BORDER_CONSTANT,
+          new cv.Scalar()
+        );
+
+        // Fuerza horizontal
+        if (warped.rows > warped.cols) {
+          const rotated = new cv.Mat();
+          cv.rotate(warped, rotated, cv.ROTATE_90_CLOCKWISE);
+          warped.delete();
+          warped = rotated;
+        }
+
+        const blob = await matToBlob(warped);
+
+        srcTri.delete();
+        dstTri.delete();
+        M.delete();
+        bestQuad.delete();
+
+        return blob;
+      } catch (err) {
+        console.error("Fallo autocrop:", err);
+        return await dataUrlToBlob(dataUrl);
+      } finally {
+        if (src) src.delete();
+        if (gray) gray.delete();
+        if (blur) blur.delete();
+        if (edges) edges.delete();
+        if (contours) contours.delete();
+        if (hierarchy) hierarchy.delete();
+        if (warped) warped.delete();
+        if (dst) dst.delete();
       }
     }
 
-    function extraerCedula(text) {
-      const limpio = text.replace(/\s+/g, " ");
-      const match = limpio.match(/\b\d{1,2}-?\d{3,4}-?\d{3,4}\b|\b\d{9,12}\b/);
-      return match ? match[0] : "";
+    function dataUrlToBlob(dataUrl) {
+      return fetch(dataUrl).then(r => r.blob());
     }
 
-    function extraerNombre(text) {
-      const lines = text
-        .split("\n")
-        .map(l => l.trim())
-        .filter(Boolean);
+    async function takePhoto(which) {
+      const videoEl = which === "front" ? videoFront : videoBack;
+      const dataUrl = captureFromVideo(videoEl);
 
-      const candidatos = lines.filter(l =>
-        /[A-ZÁÉÍÓÚÑ]{3,}/i.test(l) &&
-        l.length > 5 &&
-        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA|NACIONALIDAD|DOCUMENTO/i.test(l)
-      );
+      const blob = await autoCropDocument(dataUrl);
+      const previewUrl = URL.createObjectURL(blob);
 
-      return candidatos.slice(0, 2).join(" ");
+      if (which === "front") {
+        frontBlob = blob;
+        frontPreview.src = previewUrl;
+        frontPreview.style.display = "block";
+        stopStream(streamFront);
+        streamFront = null;
+        videoFront.srcObject = null;
+        captureFrontBtn.disabled = true;
+      } else {
+        backBlob = blob;
+        backPreview.src = previewUrl;
+        backPreview.style.display = "block";
+        stopStream(streamBack);
+        streamBack = null;
+        videoBack.srcObject = null;
+        captureBackBtn.disabled = true;
+      }
     }
 
-    function fileToDataURL(file) {
+    async function blobToDataURL(blob) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(blob);
       });
     }
 
+    async function runOCR() {
+      if (!frontBlob) {
+        ocrStatus.textContent = "Primero toma la foto del frente.";
+        return;
+      }
+
+      ocrStatus.textContent = "Leyendo texto del frente...";
+      try {
+        const result = await Tesseract.recognize(frontBlob, "spa");
+        const text = result.data.text || "";
+        fullName.value = extractName(text);
+        idNumber.value = extractId(text);
+        ocrStatus.textContent = "Listo. Revisa y corrige los campos si hace falta.";
+      } catch (err) {
+        console.error(err);
+        ocrStatus.textContent = "No se pudo leer el texto. Intenta con mejor luz.";
+      }
+    }
+
+    function extractId(text) {
+      const cleaned = text.replace(/\s+/g, " ");
+      const match = cleaned.match(/\b\d{1,2}-?\d{3,4}-?\d{3,4}\b|\b\d{9,12}\b/);
+      return match ? match[0] : "";
+    }
+
+    function extractName(text) {
+      const lines = text.split("\n").map(x => x.trim()).filter(Boolean);
+      const candidates = lines.filter(l =>
+        /[A-ZÁÉÍÓÚÑ]{3,}/i.test(l) &&
+        l.length > 6 &&
+        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA|DOCUMENTO|NACIONALIDAD/i.test(l)
+      );
+      return candidates.slice(0, 2).join(" ");
+    }
+
     async function generatePDF() {
-      if (!frontFile) {
-        shareStatus.textContent = "Necesitas al menos la foto del frente.";
+      if (!frontBlob) {
+        shareStatus.textContent = "Necesitas la foto del frente.";
         return;
       }
 
       shareStatus.textContent = "Generando PDF...";
-
       try {
-        const doc = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-          format: "a4"
-        });
-
-        const frontData = await fileToDataURL(frontFile);
-        const backData = backFile ? await fileToDataURL(backFile) : null;
+        const doc = new jsPDF();
+        const frontData = await blobToDataURL(frontBlob);
+        const backData = backBlob ? await blobToDataURL(backBlob) : null;
 
         doc.setFontSize(16);
         doc.text("Documento de identificación", 14, 16);
-
         doc.setFontSize(11);
-        doc.text("Nombre: " + (fullName.value || "No detectado"), 14, 28);
-        doc.text("Cédula: " + (idNumber.value || "No detectada"), 14, 36);
+        doc.text(`Nombre: ${fullName.value || "No detectado"}`, 14, 28);
+        doc.text(`Cédula: ${idNumber.value || "No detectada"}`, 14, 36);
 
         doc.text("Frente:", 14, 48);
         doc.addImage(frontData, "JPEG", 14, 52, 85, 54);
@@ -515,13 +602,13 @@
 
         const email = encodeURIComponent(clientEmail.value || "");
         const subject = encodeURIComponent("PDF de identificación");
-        const body = encodeURIComponent("Adjunto el PDF generado desde la mini web.");
+        const body = encodeURIComponent("Te comparto el PDF generado desde la web.");
         mailLink.href = `mailto:${email}?subject=${subject}&body=${body}`;
+        waLink.href = `https://wa.me/?text=${encodeURIComponent("Te comparto el PDF generado desde la web.")}`;
 
-        waLink.href = "https://wa.me/?text=" + encodeURIComponent("Te comparto el PDF generado desde la mini web.");
         shareStatus.textContent = "PDF listo.";
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
         shareStatus.textContent = "No se pudo generar el PDF.";
       }
     }
@@ -530,12 +617,9 @@
       if (!pdfBlob) {
         await generatePDF();
       }
-
       if (!pdfBlob) return;
 
-      const file = new File([pdfBlob], "identificacion.pdf", {
-        type: "application/pdf"
-      });
+      const file = new File([pdfBlob], "identificacion.pdf", { type: "application/pdf" });
 
       try {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -551,13 +635,21 @@
           a.href = url;
           a.download = "identificacion.pdf";
           a.click();
-          shareStatus.textContent = "Tu navegador no permite compartir directo. Se descargó el PDF.";
+          shareStatus.textContent = "Se descargó el PDF porque este navegador no permite compartir archivo directo.";
         }
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
         shareStatus.textContent = "No se pudo compartir el PDF.";
       }
     }
+
+    startFrontBtn.addEventListener("click", () => startCamera(videoFront, "front"));
+    startBackBtn.addEventListener("click", () => startCamera(videoBack, "back"));
+    captureFrontBtn.addEventListener("click", () => takePhoto("front"));
+    captureBackBtn.addEventListener("click", () => takePhoto("back"));
+    ocrBtn.addEventListener("click", runOCR);
+    pdfBtn.addEventListener("click", generatePDF);
+    shareBtn.addEventListener("click", sharePDF);
   </script>
 </body>
 </html>
