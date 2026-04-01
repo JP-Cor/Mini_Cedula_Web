@@ -1,1 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Captura de Cédula</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <style>
+    body{
+      font-family: Arial, sans-serif;
+      margin:0;
+      background:#f4f6fb;
+      color:#1f2937;
+    }
+    .container{
+      max-width:700px;
+      margin:auto;
+      padding:16px;
+    }
+    .card{
+      background:white;
+      padding:16px;
+      border-radius:16px;
+      margin-bottom:16px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.08);
+    }
+    h1,h2{margin-top:0}
+    input, button{
+      width:100%;
+      padding:12px;
+      margin-top:8px;
+      margin-bottom:12px;
+      border-radius:12px;
+      border:1px solid #d1d5db;
+      box-sizing:border-box;
+      font-size:16px;
+    }
+    button{
+      background:#111827;
+      color:white;
+      border:none;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    button:hover{
+      opacity:.95;
+    }
+    img{
+      width:100%;
+      border-radius:12px;
+      margin-top:8px;
+      border:1px solid #ddd;
+    }
+    .small{
+      font-size:13px;
+      color:#6b7280;
+    }
+    a.action-link{
+      display:block;
+      margin-top:10px;
+      font-weight:bold;
+      text-decoration:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Mini sistema de cédula</h1>
+      <p class="small">
+        Toma dos fotos, extrae nombre y número, genera un PDF y permite compartirlo.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>1. Subir fotos</h2>
+
+      <label>Foto frente</label>
+      <input type="file" id="frontInput" accept="image/*" capture="environment">
+      <img id="frontPreview" style="display:none;" alt="Frente">
+
+      <label>Foto reverso</label>
+      <input type="file" id="backInput" accept="image/*" capture="environment">
+      <img id="backPreview" style="display:none;" alt="Reverso">
+
+      <button id="ocrBtn">Leer datos</button>
+      <p id="ocrStatus" class="small"></p>
+    </div>
+
+    <div class="card">
+      <h2>2. Datos detectados</h2>
+
+      <label>Nombre completo</label>
+      <input type="text" id="fullName" placeholder="Aquí saldrá el nombre">
+
+      <label>Número de cédula</label>
+      <input type="text" id="idNumber" placeholder="Aquí saldrá la cédula">
+
+      <label>Correo del cliente</label>
+      <input type="email" id="clientEmail" placeholder="cliente@correo.com">
+    </div>
+
+    <div class="card">
+      <h2>3. PDF y compartir</h2>
+
+      <button id="pdfBtn">Generar PDF</button>
+      <button id="shareBtn">Compartir PDF</button>
+
+      <a id="mailLink" class="action-link" href="#" target="_blank">Abrir correo</a>
+      <a id="waLink" class="action-link" href="#" target="_blank">Abrir WhatsApp</a>
+
+      <p id="shareStatus" class="small"></p>
+    </div>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    let frontFile = null;
+    let backFile = null;
+    let pdfBlob = null;
+
+    const frontInput = document.getElementById("frontInput");
+    const backInput = document.getElementById("backInput");
+    const frontPreview = document.getElementById("frontPreview");
+    const backPreview = document.getElementById("backPreview");
+    const fullName = document.getElementById("fullName");
+    const idNumber = document.getElementById("idNumber");
+    const clientEmail = document.getElementById("clientEmail");
+    const ocrBtn = document.getElementById("ocrBtn");
+    const pdfBtn = document.getElementById("pdfBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const ocrStatus = document.getElementById("ocrStatus");
+    const shareStatus = document.getElementById("shareStatus");
+    const mailLink = document.getElementById("mailLink");
+    const waLink = document.getElementById("waLink");
+
+    frontInput.addEventListener("change", (e) => handleImage(e, "front"));
+    backInput.addEventListener("change", (e) => handleImage(e, "back"));
+    ocrBtn.addEventListener("click", runOCR);
+    pdfBtn.addEventListener("click", generatePDF);
+    shareBtn.addEventListener("click", sharePDF);
+
+    function handleImage(event, side) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+
+      if (side === "front") {
+        frontFile = file;
+        frontPreview.src = url;
+        frontPreview.style.display = "block";
+      } else {
+        backFile = file;
+        backPreview.src = url;
+        backPreview.style.display = "block";
+      }
+    }
+
+    async function runOCR() {
+      if (!frontFile) {
+        ocrStatus.textContent = "Primero sube la foto del frente.";
+        return;
+      }
+
+      ocrStatus.textContent = "Leyendo texto...";
+      const result = await Tesseract.recognize(frontFile, "spa");
+      const text = result.data.text || "";
+
+      ocrStatus.textContent = "Lectura completada.";
+
+      fullName.value = extraerNombre(text);
+      idNumber.value = extraerCedula(text);
+    }
+
+    function extraerCedula(text) {
+      const limpio = text.replace(/\s+/g, " ");
+      const match = limpio.match(/\b\d{1,2}-?\d{3,4}-?\d{3,4}\b|\b\d{9,12}\b/);
+      return match ? match[0] : "";
+    }
+
+    function extraerNombre(text) {
+      const lines = text
+        .split("\n")
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      const candidatos = lines.filter(l =>
+        /[A-ZÁÉÍÓÚÑ]{3,}/i.test(l) &&
+        l.length > 5 &&
+        !/REPUBLICA|IDENTIDAD|SEXO|NACIMIENTO|EXPIRACION|FIRMA/i.test(l)
+      );
+
+      return candidatos.slice(0, 2).join(" ");
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function generatePDF() {
+      if (!frontFile) {
+        shareStatus.textContent = "Necesitas al menos la foto del frente.";
+        return;
+      }
+
+      shareStatus.textContent = "Generando PDF...";
+
+      const doc = new jsPDF();
+      const frontData = await fileToDataURL(frontFile);
+      const backData = backFile ? await fileToDataURL(backFile) : null;
+
+      doc.setFontSize(16);
+      doc.text("Documento de identificación", 14, 16);
+
+      doc.setFontSize(11);
+      doc.text("Nombre: " + (fullName.value || "No detectado"), 14, 28);
+      doc.text("Cédula: " + (idNumber.value || "No detectada"), 14, 36);
+
+      doc.text("Frente:", 14, 48);
+      doc.addImage(frontData, "JPEG", 14, 52, 80, 50);
+
+      if (backData) {
+        doc.text("Reverso:", 110, 48);
+        doc.addImage(backData, "JPEG", 110, 52, 80, 50);
+      }
+
+      pdfBlob = doc.output("blob");
+
+      const email = encodeURIComponent(clientEmail.value || "");
+      const subject = encodeURIComponent("PDF de identificación");
+      const body = encodeURIComponent("Adjunto el PDF generado desde la web.");
+      mailLink.href = `mailto:${email}?subject=${subject}&body=${body}`;
+
+      waLink.href = "https://wa.me/?text=" + encodeURIComponent("Te comparto el PDF generado desde la mini web.");
+      shareStatus.textContent = "PDF listo.";
+    }
+
+    async function sharePDF() {
+      if (!pdfBlob) {
+        await generatePDF();
+      }
+
+      if (!pdfBlob) return;
+
+      const file = new File([pdfBlob], "identificacion.pdf", {
+        type: "application/pdf"
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "PDF de identificación",
+          text: "Comparto el PDF generado.",
+          files: [file]
+        });
+        shareStatus.textContent = "PDF compartido.";
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "identificacion.pdf";
+        a.click();
+        shareStatus.textContent = "El navegador no permite compartir directo. Se descargó el PDF.";
+      }
+    }
+  </script>
+</body>
+</html>
